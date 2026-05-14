@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>ゴールデンレコード 1977 | Pinda Lab</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --gold:#d4a843;--gold-light:#f0d080;--gold-bright:#ffe4a0;
+  --bg:#070b1a;--bg2:#0d1229;--card:#141a36;
+  --text:#e8e0d0;--text-dim:#8a8270;
+}
+html,body{height:100%;overflow:hidden;font-family:'Helvetica Neue',Arial,'Hiragino Kaku Gothic ProN',sans-serif;background:var(--bg);color:var(--text)}
+body{display:flex;justify-content:center;align-items:center}
+#app{width:100%;max-width:480px;height:100dvh;position:relative;overflow:hidden}
+
+canvas#stars{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none}
+
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1;opacity:0;pointer-events:none;transition:opacity .6s}
+.screen.active{opacity:1;pointer-events:auto}
+
+/* Intro */
+#intro{padding:24px;text-align:center}
+#intro h1{font-size:28px;color:var(--gold-light);margin-bottom:4px;letter-spacing:2px}
+#intro .year{font-size:48px;font-weight:200;color:var(--gold);margin-bottom:16px;letter-spacing:8px}
+#intro .subtitle{font-size:13px;color:var(--text-dim);line-height:1.8;margin-bottom:32px;max-width:340px}
+#intro .subtitle b{color:var(--gold-light);font-weight:normal}
+.btn{background:linear-gradient(135deg,var(--gold),#b8922e);color:#1a1200;border:none;padding:14px 48px;border-radius:40px;font-size:16px;font-weight:600;cursor:pointer;letter-spacing:1px;transition:transform .15s,box-shadow .15s}
+.btn:active{transform:scale(.95)}
+.btn:hover{box-shadow:0 0 30px rgba(212,168,67,.4)}
+
+.disk-intro{width:160px;height:160px;border-radius:50%;background:radial-gradient(circle at 40% 35%,var(--gold-bright),var(--gold),#8a6a20);margin:0 auto 24px;position:relative;box-shadow:0 0 60px rgba(212,168,67,.3);animation:spin-slow 20s linear infinite}
+.disk-intro::after{content:'';position:absolute;top:50%;left:50%;width:20px;height:20px;border-radius:50%;background:var(--bg);transform:translate(-50%,-50%);box-shadow:inset 0 0 4px rgba(212,168,67,.5)}
+.disk-intro::before{content:'';position:absolute;inset:12px;border-radius:50%;border:1px solid rgba(255,255,255,.08);background:repeating-radial-gradient(circle at center,transparent 0px,transparent 3px,rgba(255,255,255,.03) 3.5px,transparent 4px)}
+@keyframes spin-slow{to{transform:rotate(360deg)}}
+
+/* Game */
+#game{padding:16px;justify-content:flex-start;padding-top:env(safe-area-inset-top,12px)}
+.game-header{width:100%;display:flex;align-items:center;justify-content:space-between;padding:8px 4px;z-index:10}
+.game-header .capacity{font-size:13px;color:var(--gold)}
+.game-header .capacity span{font-size:22px;font-weight:700}
+.category-tabs{display:flex;gap:6px;margin:6px 0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px}
+.category-tabs::-webkit-scrollbar{display:none}
+.cat-tab{padding:6px 14px;border-radius:20px;font-size:12px;border:1px solid rgba(212,168,67,.2);background:transparent;color:var(--text-dim);cursor:pointer;transition:all .2s;white-space:nowrap}
+.cat-tab.active{background:rgba(212,168,67,.15);border-color:var(--gold);color:var(--gold-light)}
+.cat-tab .count{font-size:10px;opacity:.6;margin-left:2px}
+
+.disk-small{width:80px;height:80px;border-radius:50%;background:radial-gradient(circle at 40% 35%,var(--gold-bright),var(--gold),#8a6a20);margin:4px auto;position:relative;box-shadow:0 0 30px rgba(212,168,67,.2);flex-shrink:0}
+.disk-small::after{content:'';position:absolute;top:50%;left:50%;width:12px;height:12px;border-radius:50%;background:var(--bg);transform:translate(-50%,-50%)}
+.disk-fill{position:absolute;inset:0;border-radius:50%;overflow:hidden}
+.disk-fill-arc{position:absolute;inset:0}
+
+.card-area{flex:1;width:100%;position:relative;display:flex;align-items:center;justify-content:center;min-height:0;overflow:hidden}
+.card{position:absolute;width:calc(100% - 32px);max-width:380px;background:var(--card);border-radius:20px;padding:20px 20px;border:1px solid rgba(212,168,67,.12);box-shadow:0 8px 40px rgba(0,0,0,.4);transition:transform .4s cubic-bezier(.4,0,.2,1),opacity .4s;will-change:transform;touch-action:none;user-select:none}
+.card.swiping{transition:none}
+.card.exit-left{transform:translateX(-120%) rotate(-15deg)!important;opacity:0}
+.card.exit-right{transform:translateX(120%) rotate(15deg)!important;opacity:0}
+.card .icon{font-size:40px;margin-bottom:8px;display:block;text-align:center}
+.card .cat-label{font-size:11px;color:var(--gold);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;text-align:center}
+.card h2{font-size:20px;color:var(--gold-light);margin-bottom:4px;text-align:center;line-height:1.3}
+.card .name-en{font-size:12px;color:var(--text-dim);margin-bottom:12px;text-align:center}
+.card .desc{font-size:13px;color:var(--text);line-height:1.7;text-align:center;opacity:.8}
+.card .real-badge{display:none}
+
+.card-actions{display:flex;gap:20px;padding:12px 0 8px;z-index:10;justify-content:center}
+.act-btn{width:56px;height:56px;border-radius:50%;border:2px solid;display:flex;align-items:center;justify-content:center;font-size:24px;cursor:pointer;background:transparent;transition:all .15s}
+.act-btn:active{transform:scale(.9)}
+.act-btn.skip{border-color:rgba(255,100,100,.4);color:#ff6464}
+.act-btn.skip:hover{background:rgba(255,100,100,.1)}
+.act-btn.add{border-color:rgba(100,255,140,.4);color:#64ff8c}
+.act-btn.add:hover{background:rgba(100,255,140,.1)}
+.act-btn:disabled{opacity:.3;pointer-events:none}
+
+.progress-bar{width:100%;height:3px;background:rgba(212,168,67,.1);border-radius:2px;margin-top:2px;overflow:hidden}
+.progress-bar .fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-light));transition:width .4s;border-radius:2px}
+
+/* Launch */
+#launch{padding:24px;text-align:center}
+#launch h2{font-size:20px;color:var(--gold-light);margin-bottom:8px}
+#launch p{font-size:13px;color:var(--text-dim);line-height:1.6}
+.rocket-container{width:200px;height:200px;margin:24px auto;position:relative}
+.voyager{font-size:60px;position:absolute;bottom:50%;left:50%;transform:translate(-50%,50%);animation:fly-away 3s ease-in forwards;animation-delay:1s}
+@keyframes fly-away{
+  0%{bottom:50%;opacity:1;font-size:60px}
+  60%{bottom:80%;opacity:1;font-size:40px}
+  100%{bottom:100%;opacity:0;font-size:10px}
+}
+.launch-disk{width:80px;height:80px;border-radius:50%;background:radial-gradient(circle at 40% 35%,var(--gold-bright),var(--gold),#8a6a20);margin:0 auto 24px;box-shadow:0 0 40px rgba(212,168,67,.4);animation:pulse-glow 2s ease-in-out infinite}
+@keyframes pulse-glow{0%,100%{box-shadow:0 0 40px rgba(212,168,67,.4)}50%{box-shadow:0 0 60px rgba(212,168,67,.6)}}
+
+/* Results */
+#results{padding:20px;overflow-y:auto;justify-content:flex-start;padding-top:24px;-webkit-overflow-scrolling:touch}
+#results h2{font-size:22px;color:var(--gold-light);margin-bottom:4px;text-align:center}
+#results .score-line{font-size:14px;color:var(--gold);margin-bottom:20px;text-align:center}
+
+.alien-msg{background:var(--card);border-radius:16px;padding:20px;margin-bottom:16px;border:1px solid rgba(212,168,67,.1);width:100%}
+.alien-msg h3{font-size:15px;color:var(--gold-light);margin-bottom:8px}
+.alien-msg p{font-size:13px;line-height:1.7;color:var(--text);opacity:.85}
+.alien-icon{font-size:40px;text-align:center;margin-bottom:12px}
+
+.result-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;margin-bottom:16px}
+.result-item{background:rgba(212,168,67,.06);border-radius:10px;padding:10px;text-align:center;font-size:12px;border:1px solid rgba(212,168,67,.1)}
+.result-item .ri-icon{font-size:20px;margin-bottom:4px}
+.result-item .ri-name{color:var(--text);margin-bottom:2px}
+.result-item.was-real{border-color:rgba(100,255,140,.2)}
+.result-item.was-real::after{content:'✓ 実際に収録';display:block;font-size:9px;color:#64ff8c;margin-top:3px}
+.result-item.was-fake{border-color:rgba(255,100,100,.15)}
+.result-item.was-fake::after{content:'✗ 未収録';display:block;font-size:9px;color:#ff6464;margin-top:3px}
+
+.missed-section{width:100%;margin-bottom:16px}
+.missed-section h3{font-size:14px;color:var(--text-dim);margin-bottom:8px}
+.missed-list{display:flex;flex-wrap:wrap;gap:6px}
+.missed-chip{background:rgba(255,255,255,.05);padding:4px 10px;border-radius:12px;font-size:11px;color:var(--text-dim)}
+
+.history-box{background:var(--card);border-radius:16px;padding:20px;width:100%;margin-bottom:20px;border:1px solid rgba(212,168,67,.1)}
+.history-box h3{font-size:15px;color:var(--gold-light);margin-bottom:8px}
+.history-box p{font-size:12px;line-height:1.8;color:var(--text);opacity:.8}
+
+.btn-row{display:flex;gap:12px;padding-bottom:40px}
+
+.golden-particles{position:fixed;inset:0;pointer-events:none;z-index:100}
+.particle{position:absolute;width:4px;height:4px;background:var(--gold);border-radius:50%;animation:particle-fly 1s ease-out forwards}
+@keyframes particle-fly{
+  0%{opacity:1;transform:translate(0,0) scale(1)}
+  100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(0)}
+}
+
+@media(max-width:380px){
+  .card{padding:20px 16px}
+  .card h2{font-size:17px}
+  #intro h1{font-size:24px}
+  #intro .year{font-size:40px}
+}
+</style>
+</head>
+<body>
+<canvas id="stars"></canvas>
+<div id="app">
+
+<!-- INTRO -->
+<div id="intro" class="screen active">
+  <div class="disk-intro"></div>
+  <h1>ゴールデンレコード</h1>
+  <div class="year">1977</div>
+  <div class="subtitle">
+    1977年9月5日、NASAは<b>ボイジャー1号</b>を打ち上げた。<br>
+    機体には金色のレコード盤が取り付けられていた。<br><br>
+    カール・セーガン率いる委員会が選んだ<br>
+    <b>音楽、地球の音、あいさつ、写真</b>——<br>
+    地球の姿を宇宙の知的生命に届けるために。<br><br>
+    あなたなら、何を選ぶ？
+  </div>
+  <button class="btn" onclick="startGame()">レコードをつくる</button>
+</div>
+
+<!-- GAME -->
+<div id="game" class="screen">
+  <div class="game-header">
+    <div class="capacity">収録 <span id="count">0</span> / <span id="max-count">15</span></div>
+    <div class="capacity" id="remaining-label">残り <span id="remaining">30</span>枚</div>
+  </div>
+  <div class="category-tabs" id="cat-tabs"></div>
+  <div class="disk-small" id="mini-disk"><div class="disk-fill" id="disk-fill"></div></div>
+  <div class="progress-bar"><div class="fill" id="prog-fill"></div></div>
+  <div class="card-area" id="card-area"></div>
+  <div class="card-actions">
+    <button class="act-btn skip" id="btn-skip" onclick="skipCard()">✕</button>
+    <button class="act-btn add" id="btn-add" onclick="addCard()">✓</button>
+  </div>
+</div>
+
+<!-- LAUNCH -->
+<div id="launch" class="screen">
+  <div class="launch-disk"></div>
+  <div class="rocket-container"><div class="voyager">🛰️</div></div>
+  <h2>ボイジャー、発射</h2>
+  <p>あなたのゴールデンレコードは<br>宇宙の彼方へ旅立った——</p>
+</div>
+
+<!-- RESULTS -->
+<div id="results" class="screen">
+  <div class="alien-icon">👽</div>
+  <h2>異星文明の解読レポート</h2>
+  <div class="score-line" id="score-line"></div>
+  <div class="alien-msg" id="alien-msg"></div>
+  <h3 style="color:var(--gold-light);margin-bottom:10px;text-align:center;font-size:14px">あなたが選んだもの</h3>
+  <div class="result-grid" id="result-grid"></div>
+  <div class="missed-section" id="missed-section"></div>
+  <div class="history-box">
+    <h3>📜 ゴールデンレコードとは</h3>
+    <p>
+      1977年に打ち上げられたボイジャー1号・2号には、地球の生命と文化の多様性を伝えるための金色のレコード盤が搭載された。
+      天文学者カール・セーガンを委員長とするNASAの委員会が内容を選定。
+      115枚の画像、多様な自然音、55言語のあいさつ、90分の音楽が収録された。
+      ボイジャー1号は現在、太陽から約240億km離れた星間空間を飛行中——人類が作った最も遠い人工物である。
+    </p>
+  </div>
+  <div class="btn-row">
+    <button class="btn" onclick="location.reload()">もう一度</button>
+    <button class="btn" style="background:linear-gradient(135deg,#4a6fa5,#2a4a7a);color:#e0e8f0" onclick="window.open('https://pndshch.github.io/','_blank')">Pinda Lab へ</button>
+  </div>
+</div>
+
+</div>
+<div class="golden-particles" id="particles"></div>
+
+<script>
+const ITEMS = [
+  // MUSIC (10)
+  {id:1,cat:'music',icon:'🎻',ja:'バッハ「ブランデンブルク協奏曲 第2番」',en:'Bach – Brandenburg Concerto No.2',desc:'バロック音楽の最高傑作。トランペットの華やかな旋律が宇宙を駆ける。',real:true},
+  {id:2,cat:'music',icon:'🎹',ja:'ベートーヴェン「交響曲 第5番」',en:'Beethoven – Symphony No.5',desc:'運命の扉を叩く4つの音。人類の苦悩と勝利を凝縮した名曲。',real:true},
+  {id:3,cat:'music',icon:'🎸',ja:'チャック・ベリー「ジョニー・B・グッド」',en:'Chuck Berry – Johnny B. Goode',desc:'ロックンロールの原点。若者のエネルギーと夢を歌い上げる。',real:true},
+  {id:4,cat:'music',icon:'🎶',ja:'モーツァルト「魔笛」夜の女王のアリア',en:'Mozart – The Magic Flute',desc:'超絶技巧のコロラトゥーラ。人間の声の限界に挑む。',real:true},
+  {id:5,cat:'music',icon:'🎺',ja:'ルイ・アームストロング「メランコリー・ブルース」',en:'Louis Armstrong – Melancholy Blues',desc:'ジャズの王様のトランペット。哀愁と温もりが共存する音色。',real:true},
+  {id:6,cat:'music',icon:'🪘',ja:'ガムラン「プスピタワルナ」',en:'Javanese Gamelan – Puspawarna',desc:'インドネシア・ジャワ島の伝統音楽。金属打楽器の重層的な響き。',real:true},
+  {id:7,cat:'music',icon:'🎵',ja:'尺八「鶴の巣籠」',en:'Shakuhachi – Tsuru no Sugomori',desc:'日本の竹の笛が奏でる、鶴の親子の物語。静寂と自然の調和。',real:true},
+  {id:8,cat:'music',icon:'🎼',ja:'ストラヴィンスキー「春の祭典」',en:'Stravinsky – The Rite of Spring',desc:'原始のリズムが炸裂する革命的作品。初演は暴動を起こした。',real:false},
+  {id:9,cat:'music',icon:'🕺',ja:'エルヴィス・プレスリー',en:'Elvis Presley',desc:'キング・オブ・ロックンロール。候補に挙がったが版権の問題で断念された。',real:false},
+  {id:10,cat:'music',icon:'🎤',ja:'ビートルズ「ヒア・カムズ・ザ・サン」',en:'The Beatles – Here Comes the Sun',desc:'セーガンが熱望したが、レコード会社が宇宙での配信権を認めなかった。',real:false},
+
+  // SOUNDS (10)
+  {id:11,cat:'sounds',icon:'⛈️',ja:'雷鳴',en:'Thunder',desc:'大気の放電現象。地球の気象を象徴する原始的な音。',real:true},
+  {id:12,cat:'sounds',icon:'🐦',ja:'鳥のさえずり',en:'Birdsong',desc:'朝の森に響く鳥たちの合唱。生命の豊かさを伝える。',real:true},
+  {id:13,cat:'sounds',icon:'🐋',ja:'クジラの歌',en:'Whale Song',desc:'ザトウクジラの神秘的な歌声。深海に響く知性のメロディ。',real:true},
+  {id:14,cat:'sounds',icon:'👶',ja:'赤ちゃんの泣き声',en:'Baby Crying',desc:'新しい命の最初の声。どの文明でも理解できるはず。',real:true},
+  {id:15,cat:'sounds',icon:'💓',ja:'心臓の鼓動',en:'Heartbeat',desc:'生きている証。1分間に約70回のリズムが人類の存在を刻む。',real:true},
+  {id:16,cat:'sounds',icon:'🌊',ja:'波の音',en:'Ocean Waves',desc:'地球表面の71%を覆う海。その果てしない波が寄せては返す。',real:true},
+  {id:17,cat:'sounds',icon:'🐕',ja:'犬の鳴き声',en:'Dog Barking',desc:'人類最古の友。1万5千年の共生の歴史が一声に込められる。',real:true},
+  {id:18,cat:'sounds',icon:'🌋',ja:'火山の噴火音',en:'Volcano Eruption',desc:'大地のエネルギーが地表を突き破る。地球の内部活動の証。',real:true},
+  {id:19,cat:'sounds',icon:'🏎️',ja:'F1エンジン音',en:'F1 Engine Roar',desc:'人類の速度への渇望。時速300kmの金属の咆哮。',real:false},
+  {id:20,cat:'sounds',icon:'💣',ja:'爆発音',en:'Explosion',desc:'破壊の音。戦争の記憶は地球の暗い側面を映し出す。',real:false},
+
+  // GREETINGS (10)
+  {id:21,cat:'greetings',icon:'🇬🇧',ja:'英語「ハロー」',en:'English – Hello',desc:'"Hello from the children of planet Earth." 子どもの声で録音された。',real:true},
+  {id:22,cat:'greetings',icon:'🇯🇵',ja:'日本語「こんにちは」',en:'Japanese – Konnichiwa',desc:'"こんにちは。お元気ですか。" 55言語のあいさつの一つ。',real:true},
+  {id:23,cat:'greetings',icon:'🇨🇳',ja:'中国語（普通話）',en:'Mandarin Chinese',desc:'"各位都好吧？我们都很想念你们。" 世界で最も話者の多い言語。',real:true},
+  {id:24,cat:'greetings',icon:'🇸🇦',ja:'アラビア語',en:'Arabic',desc:'12億人が使う言語。右から左に書く独特の文字体系。',real:true},
+  {id:25,cat:'greetings',icon:'🇮🇳',ja:'ヒンディー語',en:'Hindi',desc:'インド亜大陸の主要言語。5億人以上の話者がいる。',real:true},
+  {id:26,cat:'greetings',icon:'🌍',ja:'スワヒリ語',en:'Swahili',desc:'アフリカ大陸の広域共通語。バンツー語とアラビア語の融合。',real:true},
+  {id:27,cat:'greetings',icon:'🏛️',ja:'ラテン語',en:'Latin',desc:'古代ローマの言語。科学と法律の礎を築いた「死語」。',real:true},
+  {id:28,cat:'greetings',icon:'🇹🇷',ja:'トルコ語',en:'Turkish',desc:'ヨーロッパとアジアを繋ぐ言語。豊かな接尾辞で表現力が高い。',real:true},
+  {id:29,cat:'greetings',icon:'🖖',ja:'クリンゴン語',en:'Klingon',desc:'スタートレックの架空言語。宇宙人向きだが、1977年にはまだ存在しなかった。',real:false},
+  {id:30,cat:'greetings',icon:'💻',ja:'プログラミング言語（Python）',en:'Python – print("Hello")',desc:'機械が読む言語。異星のAIなら理解できるかもしれない？',real:false},
+
+  // IMAGES (10)
+  {id:31,cat:'images',icon:'🪐',ja:'太陽系の図',en:'Solar System Diagram',desc:'太陽を中心に8つの惑星が並ぶ。地球の住所を宇宙に示す。',real:true},
+  {id:32,cat:'images',icon:'🧬',ja:'DNAの構造',en:'DNA Structure',desc:'二重らせんの設計図。地球の全生命の基本プログラム。',real:true},
+  {id:33,cat:'images',icon:'🍽️',ja:'食事の風景',en:'People Eating',desc:'食卓を囲む人々。栄養摂取という生物学的行為が文化になる瞬間。',real:true},
+  {id:34,cat:'images',icon:'👩‍👦',ja:'母と子',en:'Mother and Child',desc:'種を超えて理解できるはずの愛情。命を育む普遍的な姿。',real:true},
+  {id:35,cat:'images',icon:'🐬',ja:'イルカ',en:'Dolphins',desc:'海の知性。超音波で会話し、遊びを楽しむ社会的な生き物。',real:true},
+  {id:36,cat:'images',icon:'🏔️',ja:'山と海の写真',en:'Mountains and Ocean',desc:'地球のダイナミックな地形。プレートテクトニクスが作り上げた絶景。',real:true},
+  {id:37,cat:'images',icon:'🌸',ja:'花',en:'Flowers',desc:'被子植物の生殖器官が、地球では「美」の象徴になった不思議。',real:true},
+  {id:38,cat:'images',icon:'🏙️',ja:'都市の夜景',en:'City at Night',desc:'人工の光で輝く都市。宇宙からも見える文明のサイン。',real:false},
+  {id:39,cat:'images',icon:'⚔️',ja:'戦争の写真',en:'War Photo',desc:'人類の暴力性。セーガンは意図的にこれを除外した。',real:false},
+  {id:40,cat:'images',icon:'📱',ja:'スマートフォン',en:'Smartphone',desc:'21世紀の必需品。しかし1977年にはまだ存在しなかった。',real:false}
+];
+
+const CAPACITY = 15;
+const CATEGORIES = [
+  {key:'all',label:'すべて'},
+  {key:'music',label:'🎵 音楽'},
+  {key:'sounds',label:'🌊 地球の音'},
+  {key:'greetings',label:'👋 あいさつ'},
+  {key:'images',label:'📷 写真'}
+];
+
+let state = {
+  selected: [],
+  currentFilter: 'all',
+  deck: [],
+  deckIndex: 0,
+  touchStartX: 0,
+  touchStartY: 0,
+  isDragging: false,
+};
+
+// Stars
+const starsCanvas = document.getElementById('stars');
+const ctx = starsCanvas.getContext('2d');
+let starsArr = [];
+function initStars(){
+  starsCanvas.width = window.innerWidth;
+  starsCanvas.height = window.innerHeight;
+  starsArr = [];
+  for(let i=0;i<200;i++){
+    starsArr.push({
+      x:Math.random()*starsCanvas.width,
+      y:Math.random()*starsCanvas.height,
+      r:Math.random()*1.5+.3,
+      a:Math.random(),
+      da:(Math.random()-.5)*.01
+    });
+  }
+}
+function drawStars(){
+  ctx.clearRect(0,0,starsCanvas.width,starsCanvas.height);
+  starsArr.forEach(s=>{
+    s.a+=s.da;
+    if(s.a>1||s.a<.2)s.da*=-1;
+    ctx.beginPath();
+    ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+    ctx.fillStyle=`rgba(220,210,180,${s.a})`;
+    ctx.fill();
+  });
+  requestAnimationFrame(drawStars);
+}
+initStars();
+drawStars();
+window.addEventListener('resize',initStars);
+
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function shuffleArray(arr){
+  const a=[...arr];
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+function startGame(){
+  state.selected=[];
+  state.deck=shuffleArray(ITEMS);
+  state.deckIndex=0;
+  state.currentFilter='all';
+  renderTabs();
+  updateCounts();
+  showScreen('game');
+  renderCard();
+}
+
+function renderTabs(){
+  const ct=document.getElementById('cat-tabs');
+  ct.innerHTML='';
+  CATEGORIES.forEach(c=>{
+    const btn=document.createElement('button');
+    btn.className='cat-tab'+(c.key===state.currentFilter?' active':'');
+    const count=state.currentFilter==='all'?'':
+      ` (${state.selected.filter(i=>i.cat===c.key).length})`;
+    btn.innerHTML=c.label;
+    btn.onclick=()=>{
+      state.currentFilter=c.key;
+      rebuildDeck();
+      renderTabs();
+      renderCard();
+    };
+    ct.appendChild(btn);
+  });
+}
+
+function rebuildDeck(){
+  const seenIds=new Set(state.selected.map(i=>i.id));
+  let pool=ITEMS.filter(i=>!seenIds.has(i.id));
+  if(state.currentFilter!=='all'){
+    pool=pool.filter(i=>i.cat===state.currentFilter);
+  }
+  state.deck=shuffleArray(pool);
+  state.deckIndex=0;
+}
+
+function getCurrentCard(){
+  const seenIds=new Set(state.selected.map(i=>i.id));
+  while(state.deckIndex<state.deck.length){
+    const item=state.deck[state.deckIndex];
+    if(!seenIds.has(item.id)){
+      if(state.currentFilter==='all'||item.cat===state.currentFilter){
+        return item;
+      }
+    }
+    state.deckIndex++;
+  }
+  return null;
+}
+
+function renderCard(){
+  const area=document.getElementById('card-area');
+  area.innerHTML='';
+
+  if(state.selected.length>=CAPACITY){
+    finishGame();
+    return;
+  }
+
+  const item=getCurrentCard();
+  if(!item){
+    if(state.currentFilter!=='all'){
+      area.innerHTML='<div style="text-align:center;color:var(--text-dim);font-size:13px">このカテゴリは全て見ました<br><span style="font-size:11px">他のカテゴリを試してみてください</span></div>';
+    } else {
+      finishGame();
+    }
+    return;
+  }
+
+  const catLabels={music:'音楽',sounds:'地球の音',greetings:'あいさつ',images:'写真'};
+  const card=document.createElement('div');
+  card.className='card';
+  card.dataset.id=item.id;
+  card.innerHTML=`
+    <div class="cat-label">${catLabels[item.cat]}</div>
+    <div class="icon">${item.icon}</div>
+    <h2>${item.ja}</h2>
+    <div class="name-en">${item.en}</div>
+    <div class="desc">${item.desc}</div>
+  `;
+
+  // Touch/mouse swipe
+  let startX=0, startY=0, dx=0, isDrag=false;
+  const onStart=(x,y)=>{startX=x;startY=y;dx=0;isDrag=true;card.classList.add('swiping');};
+  const onMove=(x)=>{
+    if(!isDrag)return;
+    dx=x-startX;
+    const rot=dx*.08;
+    card.style.transform=`translateX(${dx}px) rotate(${rot}deg)`;
+    card.style.opacity=Math.max(0.4, 1-Math.abs(dx)/400);
+  };
+  const onEnd=()=>{
+    if(!isDrag)return;
+    isDrag=false;
+    card.classList.remove('swiping');
+    if(dx>80){addCard();}
+    else if(dx<-80){skipCard();}
+    else{card.style.transform='';card.style.opacity='';}
+  };
+
+  card.addEventListener('touchstart',e=>{const t=e.touches[0];onStart(t.clientX,t.clientY);},{passive:true});
+  card.addEventListener('touchmove',e=>{onMove(e.touches[0].clientX);},{passive:true});
+  card.addEventListener('touchend',onEnd);
+  card.addEventListener('mousedown',e=>{onStart(e.clientX,e.clientY);});
+  document.addEventListener('mousemove',e=>{if(isDrag)onMove(e.clientX);});
+  document.addEventListener('mouseup',onEnd);
+
+  area.appendChild(card);
+  updateButtons();
+}
+
+function addCard(){
+  if(state.selected.length>=CAPACITY)return;
+  const item=getCurrentCard();
+  if(!item)return;
+
+  state.selected.push(item);
+  state.deckIndex++;
+
+  spawnParticles();
+  animateCardExit('right');
+  updateCounts();
+  renderTabs();
+
+  setTimeout(()=>renderCard(),400);
+}
+
+function skipCard(){
+  const item=getCurrentCard();
+  if(!item)return;
+  state.deckIndex++;
+  animateCardExit('left');
+  updateCounts();
+  setTimeout(()=>renderCard(),400);
+}
+
+function animateCardExit(dir){
+  const card=document.querySelector('.card');
+  if(!card)return;
+  card.classList.remove('swiping');
+  card.classList.add(dir==='right'?'exit-right':'exit-left');
+}
+
+function updateCounts(){
+  document.getElementById('count').textContent=state.selected.length;
+  document.getElementById('max-count').textContent=CAPACITY;
+  const seenIds=new Set(state.selected.map(i=>i.id));
+  let remaining=ITEMS.filter(i=>!seenIds.has(i.id));
+  if(state.currentFilter!=='all')remaining=remaining.filter(i=>i.cat===state.currentFilter);
+  document.getElementById('remaining').textContent=
+    state.currentFilter==='all'?ITEMS.length-state.selected.length-state.deckIndex:remaining.length;
+
+  const pct=(state.selected.length/CAPACITY)*100;
+  document.getElementById('prog-fill').style.width=pct+'%';
+
+  // Update disk fill
+  const fill=document.getElementById('disk-fill');
+  fill.style.background=`conic-gradient(rgba(255,220,120,.25) ${pct*3.6}deg, transparent ${pct*3.6}deg)`;
+
+  updateButtons();
+}
+
+function updateButtons(){
+  const full=state.selected.length>=CAPACITY;
+  const noCard=!getCurrentCard();
+  document.getElementById('btn-skip').disabled=noCard||full;
+  document.getElementById('btn-add').disabled=noCard||full;
+}
+
+function spawnParticles(){
+  const cont=document.getElementById('particles');
+  for(let i=0;i<12;i++){
+    const p=document.createElement('div');
+    p.className='particle';
+    const cx=window.innerWidth/2;
+    const cy=window.innerHeight/2-60;
+    p.style.left=cx+'px';
+    p.style.top=cy+'px';
+    p.style.setProperty('--dx',(Math.random()-0.5)*120+'px');
+    p.style.setProperty('--dy',(Math.random()-0.5)*120+'px');
+    cont.appendChild(p);
+    setTimeout(()=>p.remove(),1000);
+  }
+}
+
+function finishGame(){
+  showScreen('launch');
+  setTimeout(()=>{
+    showResults();
+    showScreen('results');
+  },4000);
+}
+
+function showResults(){
+  const realSelected=state.selected.filter(i=>i.real);
+  const fakeSelected=state.selected.filter(i=>!i.real);
+  const allReal=ITEMS.filter(i=>i.real);
+  const missed=allReal.filter(r=>!state.selected.find(s=>s.id===r.id));
+
+  const matchPct=Math.round((realSelected.length/allReal.length)*100);
+  const accuracy=Math.round((realSelected.length/state.selected.length)*100);
+
+  // Score
+  const scoreLine=document.getElementById('score-line');
+  scoreLine.textContent=`一致率 ${matchPct}% ・ 正確度 ${accuracy}% （${realSelected.length}/${state.selected.length} が実際に収録）`;
+
+  // Alien interpretation
+  const alienDiv=document.getElementById('alien-msg');
+  const catCounts={music:0,sounds:0,greetings:0,images:0};
+  state.selected.forEach(i=>catCounts[i.cat]++);
+  const maxCat=Object.entries(catCounts).sort((a,b)=>b[1]-a[1])[0];
+  const minCat=Object.entries(catCounts).sort((a,b)=>a[1]-b[1])[0];
+
+  let alienText='';
+  const hasWar=state.selected.find(i=>i.id===39);
+  const hasExplosion=state.selected.find(i=>i.id===20);
+  const hasBaby=state.selected.find(i=>i.id===14);
+  const hasHeart=state.selected.find(i=>i.id===15);
+  const hasWhale=state.selected.find(i=>i.id===13);
+  const hasDNA=state.selected.find(i=>i.id===32);
+
+  if(hasWar||hasExplosion){
+    alienText='この星の生物は高い技術力を持つが、自らを破壊する衝動も持ち合わせているようだ。接触には最大級の注意が必要。';
+  }else if(matchPct>=70){
+    alienText='このレコードには驚くべきバランスがある。音楽、自然音、言語、映像が調和し、この星の知性が多様性の中に統一性を見出していることがわかる。接触の価値は極めて高い。';
+  }else if(maxCat[0]==='music'&&maxCat[1]>=6){
+    alienText='この星の生物は「音の振動パターンの創造」に異常な執着を示している。彼らの文明は音楽を中心に構築されているようだ。我々の周波数帯域で返信を試みよう。';
+  }else if(maxCat[0]==='sounds'&&maxCat[1]>=6){
+    alienText='この星は音に満ちている。雷鳴、波、動物の鳴き声……彼らは自分たちの惑星の生態系を深く理解し、愛しているようだ。環境に敏感な文明だと推定される。';
+  }else if(maxCat[0]==='greetings'&&maxCat[1]>=6){
+    alienText='このレコードは「あいさつ」で溢れている。この星には驚くべき数の言語体系が存在するようだ。コミュニケーションへの強い欲求を持つ社会的な種だと推定される。';
+  }else if(maxCat[0]==='images'&&maxCat[1]>=6){
+    alienText='視覚情報に重きを置いた記録だ。この星の生物は光の受容体に高度に依存した知覚系を持つようだ。我々の応答も視覚的な形で送るべきだろう。';
+  }else if(hasBaby&&hasHeart){
+    alienText='新しい生命の誕生と心臓の鼓動——この星の知性体は「生きること」そのものに深い意味を見出しているようだ。感情を持つ種であることは間違いない。';
+  }else if(hasWhale&&hasDNA){
+    alienText='生命の設計図（DNA）と海洋生物の歌声を同時に送ってきた。この星では単一の生命コードから無数の知的種が生まれているようだ。極めて興味深い進化系。';
+  }else{
+    alienText='多様な情報が含まれているが、体系性に欠ける印象だ。しかし、それこそがこの星の混沌とした美しさなのかもしれない。さらなる調査が必要だ。';
+  }
+
+  const balanceBonus=Object.values(catCounts).every(c=>c>=2);
+  if(balanceBonus&&!hasWar&&!hasExplosion){
+    alienText+='<br><br><span style="color:var(--gold)">★ バランスボーナス：全カテゴリを2つ以上収録！異星人への配慮が素晴らしい。</span>';
+  }
+
+  alienDiv.innerHTML=`<h3>👽 異星文明からの報告</h3><p>${alienText}</p>`;
+
+  // Result grid
+  const grid=document.getElementById('result-grid');
+  grid.innerHTML='';
+  state.selected.forEach(item=>{
+    const div=document.createElement('div');
+    div.className='result-item '+(item.real?'was-real':'was-fake');
+    div.innerHTML=`<div class="ri-icon">${item.icon}</div><div class="ri-name">${item.ja}</div>`;
+    grid.appendChild(div);
+  });
+
+  // Missed items
+  const missedSection=document.getElementById('missed-section');
+  if(missed.length>0){
+    missedSection.innerHTML=`<h3>見送った実際の収録曲</h3><div class="missed-list">${missed.map(i=>`<div class="missed-chip">${i.icon} ${i.ja}</div>`).join('')}</div>`;
+  }else{
+    missedSection.innerHTML='<div style="text-align:center;color:#64ff8c;font-size:14px;padding:12px">🎉 全ての実際の収録アイテムを選びました！</div>';
+  }
+}
+</script>
+</body>
+</html>
